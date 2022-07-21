@@ -51,6 +51,9 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2.2.1
+
       - name: Setup Node ${{ matrix.node-version }}
         uses: actions/setup-node@v3
         with:
