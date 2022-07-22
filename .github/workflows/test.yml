@@ -14,7 +14,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        node-version: [16.x]
         os: [ubuntu-latest]
       fail-fast: true
     name: Foundry project
@@ -27,19 +26,6 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2.2.1
-
-      - name: Setup Node ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: pnpm
-
-      - name: Install Node dependencies
-        run: |
-          pnpm install
 
       - name: Run Forge build
         run: |

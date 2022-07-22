@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "@prb/test/PRBTest.sol";
+import "prb-test/PRBTest.sol";
 
 import "../src/Token.sol";
 
