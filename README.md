@@ -49,8 +49,6 @@ pnpm hardhat example
 - Install libraries with Foundry which work with Hardhat. This project prefers forge/gitsubmodule installs for external contracts rather than node dependencies.
 
 ```bash
-
-```bash
 forge install rari-capital/solmate
 ```
 
