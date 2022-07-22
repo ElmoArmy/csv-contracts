@@ -6,6 +6,7 @@ specifiers:
   '@ethersproject/providers': ^5.4.7
   '@nomicfoundation/hardhat-chai-matchers': ^1.0.2
   '@nomiclabs/hardhat-ethers': ^2.0.6
+  '@prb/test': ^0.1.2
   '@typechain/ethers-v5': ^10.0.0
   '@typechain/hardhat': ^6.0.0
   '@types/chai': ^4.3.0
@@ -27,6 +28,7 @@ devDependencies:
   '@ethersproject/providers': 5.6.8
   '@nomicfoundation/hardhat-chai-matchers': 1.0.2_oin356m5e66skg2hzbk6qckp7a
   '@nomiclabs/hardhat-ethers': 2.1.0_72jgnctblym52z6vqt46lbuldu
+  '@prb/test': 0.1.2
   '@typechain/ethers-v5': 10.1.0_3a2z4xo3ofaclmnvqkkolsxa2u
   '@typechain/hardhat': 6.1.2_hiuzc7rf2hnnjtqpezkxy3qeb4
   '@types/chai': 4.3.1
@@ -495,6 +497,10 @@ packages:
     dependencies:
       ethers: 5.6.9
       hardhat: 2.10.1_6oasmw356qmm23djlsjgkwvrtm
+    dev: true
+
+  /@prb/test/0.1.2:
+    resolution: {integrity: sha512-D89HnQoY1PfiFmgDYZFiO3LBoyf14nWTzer5Gi/bkFedhlxZVaBN91+WqWiqWmV/n0gLdSumofD9FBbqjlugig==}
     dev: true
 
   /@scure/base/1.1.1:
