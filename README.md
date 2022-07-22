@@ -54,7 +54,7 @@ forge install rari-capital/solmate
 
 ### Notes
 
-Whenever you install new libraries using Foundry, make sure to update `remappings.txt` file by running `forge remappings > remappings.txt`.
+Whenever you install new libraries, make sure to update `remappings.txt` file by running `forge remappings > remappings.txt`.
 
 ### Warning
 
