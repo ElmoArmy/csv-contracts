@@ -3,21 +3,34 @@ pragma solidity ^0.8.13;
 
 import {PRBTest} from "prb-test/PRBTest.sol";
 import {MinimalProxyFactory} from "solidstate-solidity/factory/MinimalProxyFactory.sol";
+import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import {ERC20Permit} from "openzeppelin-contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
+import {ERC20Votes} from "openzeppelin-contracts/token/ERC20/extensions/ERC20Votes.sol";
 import {CSVWallet} from "../src/CSVWallet.sol";
-import {Votes} from "openzeppelin-contracts/governance/utils/Votes.sol";
-import {EIP712} from "openzeppelin-contracts/utils/cryptography/draft-EIP712.sol";
 
-contract MockVoteToken is Votes {
-    constructor() EIP712(string("MOCK"), string("0xdead")) {}
+contract MockToken is ERC20, ERC20Permit, ERC20Votes {
+    constructor() ERC20("MockToken", "MTK") ERC20Permit("MockToken") {}
 
-    function _getVotingUnits(address account)
+    function _afterTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal override(ERC20, ERC20Votes) {
+        super._afterTokenTransfer(from, to, amount);
+    }
+
+    function _mint(address to, uint256 amount)
         internal
-        pure
-        override
-        returns (uint256)
+        override(ERC20, ERC20Votes)
     {
-        require(account != address(0x0), "address 0 doesn't have voting units");
-        return 1 ether;
+        super._mint(to, amount);
+    }
+
+    function _burn(address account, uint256 amount)
+        internal
+        override(ERC20, ERC20Votes)
+    {
+        super._burn(account, amount);
     }
 }
 
@@ -30,14 +43,12 @@ contract CSVWalletTest is PRBTest, MinimalProxyFactory {
 
     CSVWallet wallet;
     CSVWallet proxyWallet;
-    MockVoteToken token;
-    // @notice In a standard (non-proxied) deployment, the owner of the contract is 0xdeadbeef.
-    address constant DEFAULT_OWNER = address(0xdeadbeef);
+    MockToken token;
 
     function setUp() public {
-        wallet = new CSVWallet();
+        token = new MockToken();
+        wallet = new CSVWallet(token);
         proxyWallet = CSVWallet(_deployMinimalProxy(address(wallet)));
-        token = new MockVoteToken();
     }
 
     function testDifferentOwners() public {
@@ -45,9 +56,7 @@ contract CSVWalletTest is PRBTest, MinimalProxyFactory {
     }
 
     function testWalletCannotInitialize() public {
-        vm.expectRevert(
-            bytes("Initializable: contract is already initialized")
-        );
+        vm.expectRevert("Initializable: contract is already initialized");
         wallet.initialize(address(this));
     }
 
@@ -58,16 +67,14 @@ contract CSVWalletTest is PRBTest, MinimalProxyFactory {
 
     function testProxyInitializableOnce() public {
         proxyWallet.initialize(address(this));
-        vm.expectRevert(
-            bytes("Initializable: contract is already initialized")
-        );
+        vm.expectRevert("Initializable: contract is already initialized");
         proxyWallet.initialize(address(this));
     }
 
     function testWalletCannotDelegate() public {
+        vm.expectRevert("Ownable: caller is not the owner");
         address delegatee = address(0x1234567890123456789012345678901234567890);
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        wallet.delegateERC20(token, delegatee);
+        wallet.delegateTo(delegatee);
     }
 
     function testProxyDelegation() public {
@@ -78,6 +85,13 @@ contract CSVWalletTest is PRBTest, MinimalProxyFactory {
         vm.expectEmit(true, true, true, false);
         emit DelegateChanged(delegator, currentDelegatee, delegatee);
         proxyWallet.initialize(address(this));
-        proxyWallet.delegateERC20(token, delegatee);
+        proxyWallet.delegateTo(delegatee);
+    }
+
+    function testProxyInitializesAllowanceToOwner() public {
+        address owner = address(proxyWallet);
+        address spender = address(this);
+        proxyWallet.initialize(spender);
+        assertEq(token.allowance(owner, spender), type(uint256).max);
     }
 }
