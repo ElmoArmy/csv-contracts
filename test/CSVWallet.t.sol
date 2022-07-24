@@ -49,26 +49,21 @@ contract CSVWalletTest is PRBTest, MinimalProxyFactory {
         token = new MockToken();
         wallet = new CSVWallet(token);
         proxyWallet = CSVWallet(_deployMinimalProxy(address(wallet)));
-    }
-
-    function testDifferentOwners() public {
-        assertNotEq(wallet.owner(), proxyWallet.owner());
+        proxyWallet.initialize();
     }
 
     function testWalletCannotInitialize() public {
         vm.expectRevert("Initializable: contract is already initialized");
-        wallet.initialize(address(this));
+        wallet.initialize();
     }
 
-    function testProxyCanInitialize() public {
-        proxyWallet.initialize(address(this));
+    function testProxyWasInitialized() public {
         assertEq(proxyWallet.owner(), address(this));
     }
 
     function testProxyInitializableOnce() public {
-        proxyWallet.initialize(address(this));
         vm.expectRevert("Initializable: contract is already initialized");
-        proxyWallet.initialize(address(this));
+        proxyWallet.initialize();
     }
 
     function testWalletCannotDelegate() public {
@@ -84,14 +79,12 @@ contract CSVWalletTest is PRBTest, MinimalProxyFactory {
 
         vm.expectEmit(true, true, true, false);
         emit DelegateChanged(delegator, currentDelegatee, delegatee);
-        proxyWallet.initialize(address(this));
         proxyWallet.delegateTo(delegatee);
     }
 
     function testProxyInitializesAllowanceToOwner() public {
         address owner = address(proxyWallet);
         address spender = address(this);
-        proxyWallet.initialize(spender);
         assertEq(token.allowance(owner, spender), type(uint256).max);
     }
 }

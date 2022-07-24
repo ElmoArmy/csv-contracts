@@ -1,29 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
-import {Initializable} from "openzeppelin-contracts/proxy/utils/Initializable.sol";
-import {Ownable} from "openzeppelin-contracts/access/Ownable.sol";
+import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
+import {ContextUpgradeable} from "openzeppelin-contracts-upgradeable/utils/ContextUpgradeable.sol";
+
+import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ERC20Votes} from "openzeppelin-contracts/token/ERC20/extensions/ERC20Votes.sol";
 
-contract CSVWallet is Initializable, Ownable {
-    ERC20Votes immutable _token;
+contract CSVWallet is Initializable, ContextUpgradeable, OwnableUpgradeable {
+    ERC20Votes public immutable votingToken;
 
-    constructor(ERC20Votes votingToken) {
-        _token = votingToken;
-        // @dev Disables base implementation.
-        _transferOwnership(address(0xdeadbeef));
+    constructor(ERC20Votes _votingToken) {
+        votingToken = _votingToken;
         _disableInitializers();
     }
 
-    function initialize(address vault) public initializer {
-        _transferOwnership(vault);
-        _approveMaxTransfers(vault);
+    function initialize() public initializer {
+        __Ownable_init();
+        _approveInfinite();
     }
 
     function delegateTo(address delegatee) public onlyOwner {
-        _token.delegate(delegatee);
+        votingToken.delegate(delegatee);
     }
 
-    function _approveMaxTransfers(address vault) internal {
-        _token.approve(vault, type(uint256).max);
+    function _approveInfinite() internal virtual {
+        votingToken.approve(_msgSender(), type(uint256).max);
     }
 }
