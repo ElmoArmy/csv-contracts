@@ -4,9 +4,11 @@ pragma solidity ^0.8.13;
 import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ContextUpgradeable} from "openzeppelin-contracts-upgradeable/utils/ContextUpgradeable.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
-abstract contract CSVStrategy is Initializable, ContextUpgradeable {
+abstract contract CSVVaultStrategy is
+    Initializable,
+    ContextUpgradeable,
+{
     using FixedPointMathLib for uint256;
 
     /*//////////////////////////////////////////////////////////////
@@ -51,13 +53,13 @@ abstract contract CSVStrategy is Initializable, ContextUpgradeable {
     /*//////////////////////////////////////////////////////////////
                                INITIALIZERS
     //////////////////////////////////////////////////////////////*/
-    function __CSVFeeCollector_init(
+    function __CSVVaultStrategy_init(
         uint256 startTime_,
         uint256 maturity_,
         uint256 scale_,
         address csvMain_
     ) internal virtual onlyInitializing {
-        __CSVFeeCollector_init_unchained(
+        __CSVVaultStrategy_init_unchained(
             startTime_,
             maturity_,
             scale_,
@@ -65,7 +67,7 @@ abstract contract CSVStrategy is Initializable, ContextUpgradeable {
         );
     }
 
-    function __CSVFeeCollector_init_unchained(
+    function __CSVVaultStrategy_init_unchained(
         uint256 startTime_,
         uint256 maturity_,
         uint256 scale_,
@@ -129,7 +131,11 @@ abstract contract CSVStrategy is Initializable, ContextUpgradeable {
         }
     }
 
-    function freezeFeeFor(address owner, Discount discount) public virtual {
+    function freezeFeeFor(address owner, Discount discount)
+        public
+        virtual
+        onlySponsor
+    {
         if (discount == Discount.NONE) {
             // delete any frozen discount for this user
             delete frozenDiscountFor[owner];
