@@ -23,6 +23,12 @@ contract CSVVaultTest is PRBTest, MinimalProxyFactory {
     CSVVault vault;
     CSVVault proxyVault;
 
+    // @dev helper function to mint asset tokens
+    function dealToken(address to, uint256 amount) internal returns (uint256) {
+        asset.mockMint(to, amount);
+        return amount;
+    }
+
     function setUp() public {
         asset = new MockVotingToken();
         vault = new CSVVault();
@@ -36,6 +42,7 @@ contract CSVVaultTest is PRBTest, MinimalProxyFactory {
             address(this)
         );
         proxyVault = CSVVault(_deployMinimalProxy(address(vault)));
+        vm.label(address(proxyVault), "proxyCSVVault");
         proxyVault.initialize(
             defaultParams.name,
             defaultParams.symbol,
@@ -120,37 +127,42 @@ contract CSVVaultTest is PRBTest, MinimalProxyFactory {
     }
 
     function testProxyWithdraw() public {
-        uint256 depositAmount = 1 ether;
-        address receiver = address(this);
-        // mint asset to receiver and max approve transfers to the vault;
-        asset.mockMint(receiver, depositAmount);
-        asset.approve(address(proxyVault), type(uint256).max);
-        proxyVault.deposit(depositAmount, receiver);
+        address claimant = address(0xffff);
+        vm.label(claimant, "claimant");
 
+        uint256 depositAmount = dealToken(address(this), 100 ether);
+        asset.approve(address(proxyVault), type(uint256).max);
+        proxyVault.deposit(depositAmount, claimant);
+
+        // rest of calls are performed as claimant.
+        vm.startPrank(claimant);
         // to withdraw all assets should require more than total shares.
         assertGt(
             proxyVault.previewWithdraw(proxyVault.totalAssets()),
-            proxyVault.balanceOf(receiver)
+            proxyVault.balanceOf(claimant)
         );
         // skip ahead to maturity - 12 weeks, most assets available to withdraw;
-        vm.warp(block.timestamp + (4 weeks * 33));
+        vm.warp(
+            block.timestamp +
+                (defaultParams.maturity - block.timestamp - 12 weeks)
+        );
 
         assertEq(
-            proxyVault.previewWithdraw(proxyVault.maxWithdraw(receiver)),
+            proxyVault.previewWithdraw(proxyVault.maxWithdraw(claimant)),
             proxyVault.withdraw(
-                proxyVault.maxWithdraw(receiver),
-                receiver,
-                receiver
+                proxyVault.maxWithdraw(claimant),
+                claimant,
+                claimant
             )
         );
         // skip ahead to maturity, all assets available to withdraw;
-        vm.warp(block.timestamp + (4 weeks * 3));
+        vm.warp(block.timestamp + (12 weeks));
         assertEq(
-            proxyVault.previewWithdraw(proxyVault.maxWithdraw(receiver)),
+            proxyVault.previewWithdraw(proxyVault.maxWithdraw(claimant)),
             proxyVault.withdraw(
-                proxyVault.maxWithdraw(receiver),
-                receiver,
-                receiver
+                proxyVault.maxWithdraw(claimant),
+                claimant,
+                claimant
             )
         );
     }
