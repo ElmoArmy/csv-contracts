@@ -9,6 +9,14 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 contract CSVVaultTest is PRBTest, MinimalProxyFactory {
     using FixedPointMathLib for uint256;
 
+    event CollectedFee(
+        address indexed sender,
+        address indexed receiver,
+        address indexed owner,
+        uint256 assets,
+        uint256 shares
+    );
+
     struct vaultInitializeParams {
         string name;
         string symbol;
@@ -165,5 +173,82 @@ contract CSVVaultTest is PRBTest, MinimalProxyFactory {
                 claimant
             )
         );
+    }
+
+    function testProxyCollectsFee() public {
+        // setup actors
+        address sponsor = address(this);
+        address claimantAlice = address(0xffff);
+        address claimantBob = address(0xeeee);
+        //label actors
+        vm.label(claimantAlice, "Alice");
+        vm.label(claimantBob, "Bob");
+        vm.label(sponsor, "sponsor");
+
+        // sponsor actions
+        uint256 depositAmount = dealToken(sponsor, 100 ether);
+        asset.approve(address(proxyVault), type(uint256).max);
+
+        proxyVault.deposit(depositAmount / 2, claimantAlice);
+        proxyVault.deposit(depositAmount / 2, claimantBob);
+
+        // fast forward to maturity - 12 weeks, most assets available to withdraw;
+        vm.warp(
+            block.timestamp +
+                (defaultParams.maturity - block.timestamp - 12 weeks)
+        );
+        // Alice redeems all shares.
+        vm.startPrank(claimantAlice);
+
+        // @ dev max redeem does not account for fees the way maxWitdraw does.
+        // A claimant may redeem all shares, but they will still be charged their individual fee.
+        uint256 allSharesAlice = proxyVault.maxRedeem(claimantAlice);
+        // preview redeem does not take into account frozen fees, so it may be inaccurate.
+        uint256 expectedAssetsToWithdraw = proxyVault.maxWithdraw(
+            claimantAlice
+        );
+
+        // expect CollectedFee event.
+        vm.expectEmit(true, true, true, false, address(proxyVault));
+        emit CollectedFee(
+            claimantAlice,
+            claimantAlice,
+            claimantAlice,
+            0 ether, // not checked
+            0 ether //  not checked
+        );
+        uint256 assetsClaimed = proxyVault.redeem(
+            allSharesAlice,
+            claimantAlice,
+            claimantAlice
+        );
+        assertEq(assetsClaimed, expectedAssetsToWithdraw);
+        vm.stopPrank();
+        uint256 sponsorBalance = asset.balanceOf(sponsor);
+        uint256 aliceBalance = asset.balanceOf(claimantAlice);
+
+        //balance of Alice + balance of Sponsor should equal balance of Vault after redemption.
+        assertEq(sponsorBalance + aliceBalance, proxyVault.totalAssets());
+
+        // skip till vault expiry
+        vm.warp(block.timestamp + (12 weeks));
+
+        vm.startPrank(claimantBob);
+        uint256 allSharesBob = proxyVault.maxRedeem(claimantBob);
+        uint256 expectedAssetsToWithdrawBob = proxyVault.maxWithdraw(
+            claimantBob
+        );
+        uint256 assetsClaimedBob = proxyVault.redeem(
+            allSharesBob,
+            claimantBob,
+            claimantBob
+        );
+        assertEq(assetsClaimedBob, expectedAssetsToWithdrawBob);
+        vm.stopPrank();
+
+        // balance for sponsor should stay the same.
+        assertEq(sponsorBalance, asset.balanceOf(sponsor));
+
+        assertEq(sponsorBalance + aliceBalance, asset.balanceOf(claimantBob));
     }
 }

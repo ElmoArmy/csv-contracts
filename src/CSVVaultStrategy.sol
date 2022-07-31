@@ -11,7 +11,7 @@ abstract contract CSVVaultStrategy is Initializable, ContextUpgradeable {
     /*//////////////////////////////////////////////////////////////
                              EVENTS
     //////////////////////////////////////////////////////////////*/
-    event Collected(
+    event CollectedFee(
         address indexed sender,
         address indexed receiver,
         address indexed owner,
