@@ -4,10 +4,13 @@ import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Init
 import {ContextUpgradeable} from "openzeppelin-contracts-upgradeable/utils/ContextUpgradeable.sol";
 import {ERC4626Upgradeable} from "openzeppelin-contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
 import {IERC20MetadataUpgradeable} from "openzeppelin-contracts-upgradeable/interfaces/IERC20MetadataUpgradeable.sol";
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
 import {CSVVaultStrategy} from "./CSVVaultStrategy.sol";
 
 contract CSVVault is ERC4626Upgradeable, CSVVaultStrategy {
+    using FixedPointMathLib for uint256;
+
     constructor() {
         _disableInitializers();
     }
@@ -24,5 +27,99 @@ contract CSVVault is ERC4626Upgradeable, CSVVaultStrategy {
         __ERC20_init(name_, symbol_);
         __ERC4626_init(IERC20MetadataUpgradeable(asset_));
         __CSVVaultStrategy_init(startTime_, maturity_, scale_, csvMain_);
+    }
+
+    function previewWithdraw(uint256 assets)
+        public
+        view
+        virtual
+        override
+        returns (uint256)
+    {
+        uint256 shares = super.previewWithdraw(assets);
+        uint256 fee = previewFee(Discount.BOTH).mulWadUp(shares);
+        // return fee > shares ? 0 : shares - fee;
+        return shares + fee;
+    }
+
+    function maxWithdraw(address owner)
+        public
+        view
+        virtual
+        override
+        returns (uint256)
+    {
+        uint256 maxAssets = super.maxWithdraw(owner);
+        uint256 fee = maxFeeFor(owner).mulWadUp(maxAssets);
+        return fee > maxAssets ? 0 : maxAssets - fee;
+    }
+
+    function withdraw(
+        uint256 assets,
+        address receiver,
+        address owner
+    ) public virtual override returns (uint256) {
+        require(
+            assets <= maxWithdraw(owner),
+            "ERC4626: withdraw more than max"
+        );
+        uint256 feeInAssets = maxFeeFor(owner).mulWadUp(assets);
+        uint256 feeInShares = convertToShares(feeInAssets);
+        uint256 receiverAssets = assets - feeInAssets;
+        uint256 receiverShares = previewWithdraw(assets) - feeInShares;
+
+        if (feeInAssets > 0) {
+            _withdraw(_msgSender(), csvMain, owner, feeInAssets, feeInShares);
+        }
+        _withdraw(
+            _msgSender(),
+            receiver,
+            owner,
+            receiverAssets,
+            receiverShares
+        );
+        return feeInShares + receiverShares;
+    }
+
+    function previewRedeem(uint256 shares)
+        public
+        view
+        virtual
+        override
+        returns (uint256)
+    {
+        //WIP - Match with previewWithdraw
+        uint256 assets = super.previewRedeem(shares);
+        uint256 fee = previewFee(Discount.BOTH).mulWadUp(assets);
+        return fee > assets ? 0 : assets - fee;
+    }
+
+    function maxRedeem(address owner)
+        public
+        view
+        virtual
+        override
+        returns (uint256)
+    {
+        //WIP - Match with maxWithdraw
+        uint256 maxShares = super.maxRedeem(owner);
+        uint256 fee = maxFeeFor(owner).mulWadUp(maxShares);
+        return fee > maxShares ? 0 : maxShares - fee;
+    }
+
+    function redeem(
+        uint256 shares,
+        address receiver,
+        address owner
+    ) public virtual override returns (uint256) {
+        //WIP - Match with withdraw
+        require(shares <= maxRedeem(owner), "ERC4626: redeem more than max");
+        uint256 fee = maxFeeFor(owner).mulWadUp(shares);
+        uint256 totalAssets;
+        if (fee > 0) {
+            totalAssets += super.redeem(fee, csvMain, owner);
+        }
+        totalAssets += super.redeem(shares - fee, receiver, owner);
+        return totalAssets;
     }
 }
