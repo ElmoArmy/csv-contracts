@@ -5,10 +5,7 @@ import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Init
 import {ContextUpgradeable} from "openzeppelin-contracts-upgradeable/utils/ContextUpgradeable.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
-abstract contract CSVVaultStrategy is
-    Initializable,
-    ContextUpgradeable,
-{
+abstract contract CSVVaultStrategy is Initializable, ContextUpgradeable {
     using FixedPointMathLib for uint256;
 
     /*//////////////////////////////////////////////////////////////
@@ -40,7 +37,7 @@ abstract contract CSVVaultStrategy is
 
     uint256 internal constant ACCRUAL_RATE = 12 seconds;
     uint256 internal constant DEFAULT_FEE = 1 ether;
-    uint256 public startTime;
+    uint256 public joinTime;
     uint256 public maturity;
     uint256 public scale;
     address public csvMain;
@@ -54,13 +51,13 @@ abstract contract CSVVaultStrategy is
                                INITIALIZERS
     //////////////////////////////////////////////////////////////*/
     function __CSVVaultStrategy_init(
-        uint256 startTime_,
+        uint256 joinTime_,
         uint256 maturity_,
         uint256 scale_,
         address csvMain_
     ) internal virtual onlyInitializing {
         __CSVVaultStrategy_init_unchained(
-            startTime_,
+            joinTime_,
             maturity_,
             scale_,
             csvMain_
@@ -68,12 +65,12 @@ abstract contract CSVVaultStrategy is
     }
 
     function __CSVVaultStrategy_init_unchained(
-        uint256 startTime_,
+        uint256 joinTime_,
         uint256 maturity_,
         uint256 scale_,
         address csvMain_
     ) internal virtual onlyInitializing {
-        startTime = startTime_;
+        joinTime = joinTime_;
         maturity = maturity_;
         scale = scale_;
         csvMain = csvMain_;
@@ -95,7 +92,7 @@ abstract contract CSVVaultStrategy is
             applyDiscount == Discount.BOTH
             ? _timeDiscount(
                 block.timestamp,
-                startTime,
+                joinTime,
                 maturity,
                 scale,
                 ACCRUAL_RATE
@@ -167,16 +164,23 @@ abstract contract CSVVaultStrategy is
 
     function _timeDiscount(
         uint256 currentTime,
-        uint256 elapsedTime,
+        uint256 startTime,
         uint256 maturityTime,
         uint256 scalingFactor,
         uint256 accrualRate
-    ) internal view virtual returns (uint256) {
+    ) internal pure virtual returns (uint256) {
+        if (currentTime >= maturityTime || startTime >= maturityTime) return 0;
+        require(startTime <= currentTime, "invalid joinTime");
         unchecked {
-            uint256 total_periods_scaled = (maturityTime - currentTime)
-                .mulDivUp(scalingFactor, accrualRate);
-            uint256 elapsed_periods_scaled = (currentTime - elapsedTime)
-                .mulDivUp(scalingFactor, accrualRate);
+            uint256 total_periods_scaled = (maturityTime - startTime).mulDivUp(
+                scalingFactor,
+                accrualRate
+            );
+
+            uint256 elapsed_periods_scaled = (currentTime - startTime).mulDivUp(
+                scalingFactor,
+                accrualRate
+            );
             if (elapsed_periods_scaled >= total_periods_scaled) {
                 return 0;
             }
