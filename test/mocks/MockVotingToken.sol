@@ -31,4 +31,8 @@ contract MockVotingToken is ERC20, ERC20Permit, ERC20Votes {
     {
         super._burn(account, amount);
     }
+
+    function mockMint(address to, uint256 amount) public {
+        _mint(to, amount);
+    }
 }
