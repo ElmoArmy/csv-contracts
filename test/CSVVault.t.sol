@@ -104,14 +104,15 @@ contract CSVVaultTest is PRBTest, MinimalProxyFactory {
 
     function testProxyTimeDiscount() public {
         address receiver = address(this);
-        uint256 nineMonths = (4 weeks * 9);
+        uint256 quarterOfRemainingTime = (defaultParams.maturity -
+            block.timestamp) / 4;
         uint256 expectedDifference = uint256(.25 ether).mulWadUp(
             proxyVault.scale()
         );
         uint256 beforeWarpFee = proxyVault.maxFeeFor(receiver);
 
         // fast forward nine months;
-        vm.warp(block.timestamp + nineMonths);
+        vm.warp(block.timestamp + quarterOfRemainingTime);
         uint256 afterWarpFee = proxyVault.maxFeeFor(receiver);
 
         // asserts that after time warp, the vault is charging less fees than before time warp
