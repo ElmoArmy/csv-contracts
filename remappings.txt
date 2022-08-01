@@ -5,3 +5,4 @@ openzeppelin-contracts/=lib/openzeppelin-contracts/contracts/
 prb-test/=lib/prb-test/src/
 solidstate-solidity/=lib/solidstate-solidity/contracts/
 solmate/=lib/solmate/src/
+uma/=lib/uma/packages/core/contracts/
