@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 import {PRBTest} from "prb-test/PRBTest.sol";
 import {CSVVault} from "../src/CSVVault.sol";
+import {CSVWallet} from "../src/CSVWallet.sol";
 import {MockVotingToken} from "./mocks/MockVotingToken.sol";
 import {MinimalProxyFactory} from "solidstate-solidity/factory/MinimalProxyFactory.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
@@ -25,11 +26,13 @@ contract CSVVaultTest is PRBTest, MinimalProxyFactory {
         uint256 maturity;
         uint256 scale;
         address sponsor;
+        address walletImplementation;
     }
     MockVotingToken asset;
     vaultInitializeParams defaultParams;
     CSVVault vault;
     CSVVault proxyVault;
+    CSVWallet walletBaseImplementation;
 
     // @dev helper function to mint asset tokens
     function dealToken(address to, uint256 amount) internal returns (uint256) {
@@ -40,6 +43,8 @@ contract CSVVaultTest is PRBTest, MinimalProxyFactory {
     function setUp() public {
         asset = new MockVotingToken();
         vault = new CSVVault();
+        walletBaseImplementation = new CSVWallet(asset);
+
         defaultParams = vaultInitializeParams(
             "CSVVault",
             "CSV",
@@ -47,7 +52,8 @@ contract CSVVaultTest is PRBTest, MinimalProxyFactory {
             block.timestamp,
             block.timestamp + (4 weeks * 36),
             2 ether,
-            address(this)
+            address(this),
+            address(walletBaseImplementation)
         );
         proxyVault = CSVVault(_deployMinimalProxy(address(vault)));
         vm.label(address(proxyVault), "proxyCSVVault");
@@ -58,7 +64,8 @@ contract CSVVaultTest is PRBTest, MinimalProxyFactory {
             defaultParams.startTime,
             defaultParams.maturity,
             defaultParams.scale,
-            defaultParams.sponsor
+            defaultParams.sponsor,
+            defaultParams.walletImplementation
         );
     }
 
@@ -71,7 +78,8 @@ contract CSVVaultTest is PRBTest, MinimalProxyFactory {
             defaultParams.startTime,
             defaultParams.maturity,
             defaultParams.scale,
-            defaultParams.sponsor
+            defaultParams.sponsor,
+            defaultParams.walletImplementation
         );
     }
 
@@ -97,6 +105,10 @@ contract CSVVaultTest is PRBTest, MinimalProxyFactory {
         assertEq(proxyVault.symbol(), defaultParams.symbol);
         assertEq(proxyVault.asset(), defaultParams.asset);
         assertEq(proxyVault.maturity(), defaultParams.maturity);
+        assertEq(
+            proxyVault.walletImplementation(),
+            defaultParams.walletImplementation
+        );
     }
 
     function testProxyTimeDiscount(uint256 warp) public {

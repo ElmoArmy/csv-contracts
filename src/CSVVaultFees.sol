@@ -5,7 +5,7 @@ import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Init
 import {ContextUpgradeable} from "openzeppelin-contracts-upgradeable/utils/ContextUpgradeable.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
-abstract contract CSVVaultStrategy is Initializable, ContextUpgradeable {
+abstract contract CSVVaultFees is Initializable, ContextUpgradeable {
     using FixedPointMathLib for uint256;
 
     /*//////////////////////////////////////////////////////////////
@@ -50,21 +50,16 @@ abstract contract CSVVaultStrategy is Initializable, ContextUpgradeable {
     /*//////////////////////////////////////////////////////////////
                                INITIALIZERS
     //////////////////////////////////////////////////////////////*/
-    function __CSVVaultStrategy_init(
+    function __CSVVaultFees_init(
         uint256 joinTime_,
         uint256 maturity_,
         uint256 scale_,
         address csvMain_
     ) internal virtual onlyInitializing {
-        __CSVVaultStrategy_init_unchained(
-            joinTime_,
-            maturity_,
-            scale_,
-            csvMain_
-        );
+        __CSVVaultFees_init_unchained(joinTime_, maturity_, scale_, csvMain_);
     }
 
-    function __CSVVaultStrategy_init_unchained(
+    function __CSVVaultFees_init_unchained(
         uint256 joinTime_,
         uint256 maturity_,
         uint256 scale_,
