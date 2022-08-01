@@ -263,4 +263,60 @@ contract CSVVaultTest is PRBTest, MinimalProxyFactory {
 
         assertEq(sponsorBalance + aliceBalance, asset.balanceOf(claimantBob));
     }
+
+    function testProxyDelegation() public {
+        // setup actors
+        address sponsor = address(this);
+        address claimantAlice = address(0xffff);
+        //label actors
+        vm.label(claimantAlice, "Alice");
+        vm.label(sponsor, "sponsor");
+
+        // sponsor actions
+        uint256 depositAmount = dealToken(sponsor, 100 ether);
+        asset.approve(address(proxyVault), type(uint256).max);
+
+        proxyVault.deposit(depositAmount, claimantAlice);
+
+        vm.startPrank(claimantAlice);
+        // allice should not have any assets available to delegate.
+        assertEq(proxyVault.delegateCurrentClaim(claimantAlice), 0 ether);
+
+        // fast forward to maturity - 12 weeks, most assets available to withdraw;
+        vm.warp(
+            block.timestamp +
+                (defaultParams.maturity - block.timestamp - 12 weeks)
+        );
+        uint256 avaiableToWithdraw = proxyVault.maxWithdraw(claimantAlice);
+        assertGt(avaiableToWithdraw, 0 ether);
+        assertEq(
+            proxyVault.delegateCurrentClaim(claimantAlice),
+            avaiableToWithdraw
+        );
+        // trying to delegate again should result in no more delegation.
+        assertEq(proxyVault.delegateCurrentClaim(claimantAlice), 0 ether);
+        // should still be able to withdraw the same amount.
+        assertEq(proxyVault.maxWithdraw(claimantAlice), avaiableToWithdraw);
+
+        assertEq(proxyVault.totalDelegated(), avaiableToWithdraw);
+        // vault should have more assets than total delegated at this time.
+        assertGt(proxyVault.totalAssets(), avaiableToWithdraw);
+
+        // withdraw half of available assets.
+        proxyVault.withdraw(
+            avaiableToWithdraw / 2,
+            claimantAlice,
+            claimantAlice
+        );
+        // after withdrawing any portion, all assets are undelegated
+        assertEq(proxyVault.totalDelegated(), 0 ether);
+        assertGt(proxyVault.totalAssets(), avaiableToWithdraw / 2);
+
+        // alice delegates again after withdrawing.
+        assertEq(
+            proxyVault.delegateCurrentClaim(claimantAlice),
+            avaiableToWithdraw / 2
+        );
+        
+    }
 }

@@ -6,7 +6,7 @@ import {ERC4626Upgradeable} from "openzeppelin-contracts-upgradeable/token/ERC20
 import {IERC20MetadataUpgradeable} from "openzeppelin-contracts-upgradeable/interfaces/IERC20MetadataUpgradeable.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {CSVVaultFees} from "./CSVVaultFees.sol";
-import {CSVVaultDelegation} from "./CSVVaultDelegation.sol";
+import {CSVVaultDelegation, CSVWallet} from "./CSVVaultDelegation.sol";
 
 contract CSVVault is ERC4626Upgradeable, CSVVaultFees, CSVVaultDelegation {
     using FixedPointMathLib for uint256;
@@ -29,6 +29,51 @@ contract CSVVault is ERC4626Upgradeable, CSVVaultFees, CSVVaultDelegation {
         __ERC4626_init(IERC20MetadataUpgradeable(asset_));
         __CSVVaultFees_init(startTime_, maturity_, scale_, csvMain_);
         __CSVVaultDelegation_init(csvWalletImplementation_);
+    }
+
+    function totalAssets() public view virtual override returns (uint256) {
+        return super.totalAssets() + totalDelegated;
+    }
+
+    function delegateCurrentClaim(address to)
+        external
+        virtual
+        returns (uint256)
+    {
+        address delegator = _msgSender();
+        // creates delegation wallet if it doesn't exist
+        CSVWallet wallet = _delegateTo(to);
+
+        uint256 assetsCurrentlyDelegated = IERC20MetadataUpgradeable(asset())
+            .balanceOf(address(wallet));
+
+        FrozenDiscount memory frozen = getfrozenDiscountFor(delegator);
+        uint256 timeFactor = frozen.time != 0
+            ? frozen.time
+            : previewFee(Discount.TIME);
+
+        uint256 totalDelegatorAssets = convertToAssets(maxRedeem(_msgSender()));
+
+        totalDelegatorAssets -= totalDelegatorAssets.mulWadUp(timeFactor) >=
+            totalDelegatorAssets
+            ? totalDelegatorAssets
+            : totalDelegatorAssets.mulWadUp(timeFactor);
+
+        uint256 assetsToDelegate = totalDelegatorAssets -
+            assetsCurrentlyDelegated;
+
+        if (assetsToDelegate == 0) {
+            // bail early if no need to transfer or update totalDelegated
+            return assetsToDelegate;
+        }
+        totalDelegated += assetsToDelegate;
+
+        IERC20MetadataUpgradeable(asset()).transfer(
+            address(wallet),
+            assetsToDelegate
+        );
+
+        return assetsToDelegate;
     }
 
     function previewWithdraw(uint256 assets)
@@ -67,6 +112,9 @@ contract CSVVault is ERC4626Upgradeable, CSVVaultFees, CSVVaultDelegation {
             assets <= maxWithdraw(owner),
             "ERC4626: withdraw more than max"
         );
+        // retrieve any delegation assets.
+        _retrieveDelegationAssets(owner);
+
         uint256 receiverAssets = assets;
         uint256 receiverShares = convertToShares(receiverAssets);
         uint256 feeInAssets = assets.divWadUp(1 ether - maxFeeFor(owner)) -
@@ -112,6 +160,8 @@ contract CSVVault is ERC4626Upgradeable, CSVVaultFees, CSVVaultDelegation {
         address owner
     ) public virtual override returns (uint256) {
         require(shares <= maxRedeem(owner), "ERC4626: redeem more than max");
+        // retrieve any delegation assets.
+        _retrieveDelegationAssets(owner);
 
         uint256 feeInShares = maxFeeFor(owner).mulWadUp(shares);
         uint256 feeInAssets = convertToAssets(feeInShares);

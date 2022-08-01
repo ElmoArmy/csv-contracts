@@ -102,6 +102,16 @@ abstract contract CSVVaultFees is Initializable, ContextUpgradeable {
         return _applyFee(timeDiscount, priceDiscount);
     }
 
+    function getfrozenDiscountFor(address owner_)
+        public
+        view
+        virtual
+        returns (FrozenDiscount memory)
+    {
+        FrozenDiscount memory frozenDiscount = frozenDiscountFor[owner_];
+        return frozenDiscount;
+    }
+
     function maxFeeFor(address owner) public view virtual returns (uint256) {
         FrozenDiscount memory userDiscount = frozenDiscountFor[owner];
         if (userDiscount.frozen == Discount.NONE) {
