@@ -4,15 +4,14 @@ pragma solidity ^0.8.13;
 import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ContextUpgradeable} from "openzeppelin-contracts-upgradeable/utils/ContextUpgradeable.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
-abstract contract CSVStrategy is Initializable, ContextUpgradeable {
+abstract contract CSVVaultFees is Initializable, ContextUpgradeable {
     using FixedPointMathLib for uint256;
 
     /*//////////////////////////////////////////////////////////////
                              EVENTS
     //////////////////////////////////////////////////////////////*/
-    event Collected(
+    event CollectedFee(
         address indexed sender,
         address indexed receiver,
         address indexed owner,
@@ -38,7 +37,7 @@ abstract contract CSVStrategy is Initializable, ContextUpgradeable {
 
     uint256 internal constant ACCRUAL_RATE = 12 seconds;
     uint256 internal constant DEFAULT_FEE = 1 ether;
-    uint256 public startTime;
+    uint256 public joinTime;
     uint256 public maturity;
     uint256 public scale;
     address public csvMain;
@@ -51,27 +50,22 @@ abstract contract CSVStrategy is Initializable, ContextUpgradeable {
     /*//////////////////////////////////////////////////////////////
                                INITIALIZERS
     //////////////////////////////////////////////////////////////*/
-    function __CSVFeeCollector_init(
-        uint256 startTime_,
+    function __CSVVaultFees_init(
+        uint256 joinTime_,
         uint256 maturity_,
         uint256 scale_,
         address csvMain_
     ) internal virtual onlyInitializing {
-        __CSVFeeCollector_init_unchained(
-            startTime_,
-            maturity_,
-            scale_,
-            csvMain_
-        );
+        __CSVVaultFees_init_unchained(joinTime_, maturity_, scale_, csvMain_);
     }
 
-    function __CSVFeeCollector_init_unchained(
-        uint256 startTime_,
+    function __CSVVaultFees_init_unchained(
+        uint256 joinTime_,
         uint256 maturity_,
         uint256 scale_,
         address csvMain_
     ) internal virtual onlyInitializing {
-        startTime = startTime_;
+        joinTime = joinTime_;
         maturity = maturity_;
         scale = scale_;
         csvMain = csvMain_;
@@ -93,7 +87,7 @@ abstract contract CSVStrategy is Initializable, ContextUpgradeable {
             applyDiscount == Discount.BOTH
             ? _timeDiscount(
                 block.timestamp,
-                startTime,
+                joinTime,
                 maturity,
                 scale,
                 ACCRUAL_RATE
@@ -106,6 +100,16 @@ abstract contract CSVStrategy is Initializable, ContextUpgradeable {
             : DEFAULT_FEE;
 
         return _applyFee(timeDiscount, priceDiscount);
+    }
+
+    function getfrozenDiscountFor(address owner_)
+        public
+        view
+        virtual
+        returns (FrozenDiscount memory)
+    {
+        FrozenDiscount memory frozenDiscount = frozenDiscountFor[owner_];
+        return frozenDiscount;
     }
 
     function maxFeeFor(address owner) public view virtual returns (uint256) {
@@ -129,7 +133,11 @@ abstract contract CSVStrategy is Initializable, ContextUpgradeable {
         }
     }
 
-    function freezeFeeFor(address owner, Discount discount) public virtual {
+    function freezeFeeFor(address owner, Discount discount)
+        public
+        virtual
+        onlySponsor
+    {
         if (discount == Discount.NONE) {
             // delete any frozen discount for this user
             delete frozenDiscountFor[owner];
@@ -161,16 +169,23 @@ abstract contract CSVStrategy is Initializable, ContextUpgradeable {
 
     function _timeDiscount(
         uint256 currentTime,
-        uint256 elapsedTime,
+        uint256 startTime,
         uint256 maturityTime,
         uint256 scalingFactor,
         uint256 accrualRate
-    ) internal view virtual returns (uint256) {
+    ) internal pure virtual returns (uint256) {
+        if (currentTime >= maturityTime || startTime >= maturityTime) return 0;
+        require(startTime <= currentTime, "invalid joinTime");
         unchecked {
-            uint256 total_periods_scaled = (maturityTime - currentTime)
-                .mulDivUp(scalingFactor, accrualRate);
-            uint256 elapsed_periods_scaled = (currentTime - elapsedTime)
-                .mulDivUp(scalingFactor, accrualRate);
+            uint256 total_periods_scaled = (maturityTime - startTime).mulDivUp(
+                scalingFactor,
+                accrualRate
+            );
+
+            uint256 elapsed_periods_scaled = (currentTime - startTime).mulDivUp(
+                scalingFactor,
+                accrualRate
+            );
             if (elapsed_periods_scaled >= total_periods_scaled) {
                 return 0;
             }
