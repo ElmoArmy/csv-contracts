@@ -22,3 +22,6 @@
 [submodule "lib/uma"]
 	path = lib/uma
 	url = https://github.com/UMAprotocol/protocol
+[submodule "lib/prb-math"]
+	path = lib/prb-math
+	url = https://github.com/paulrberg/prb-math
