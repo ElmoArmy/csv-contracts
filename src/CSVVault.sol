@@ -22,12 +22,12 @@ contract CSVVault is ERC4626Upgradeable, CSVVaultFees, CSVVaultDelegation {
         uint256 startTime_,
         uint256 maturity_,
         uint256 scale_,
-        address csvMain_,
+        address csvFactory_,
         address csvWalletImplementation_
     ) public initializer {
         __ERC20_init(name_, symbol_);
         __ERC4626_init(IERC20MetadataUpgradeable(asset_));
-        __CSVVaultFees_init(startTime_, maturity_, scale_, csvMain_);
+        __CSVVaultFees_init(startTime_, maturity_, scale_, csvFactory_);
         __CSVVaultDelegation_init(csvWalletImplementation_);
     }
 
@@ -120,9 +120,16 @@ contract CSVVault is ERC4626Upgradeable, CSVVaultFees, CSVVaultDelegation {
         uint256 feeInAssets = assets.divWadUp(1 ether - maxFeeFor(owner)) -
             assets;
         uint256 feeInShares = convertToShares(feeInAssets);
+        address feeCollector = csvFactory.feeCollector();
 
         if (feeInAssets > 0) {
-            _withdraw(_msgSender(), csvMain, owner, feeInAssets, feeInShares);
+            _withdraw(
+                _msgSender(),
+                feeCollector,
+                owner,
+                feeInAssets,
+                feeInShares
+            );
             emit CollectedFee(
                 _msgSender(),
                 receiver,
@@ -167,8 +174,16 @@ contract CSVVault is ERC4626Upgradeable, CSVVaultFees, CSVVaultDelegation {
         uint256 feeInAssets = convertToAssets(feeInShares);
         uint256 receiverShares = shares - feeInShares;
         uint256 receiverAssets = convertToAssets(receiverShares);
+        address feeCollector = csvFactory.feeCollector();
+
         if (feeInShares > 0) {
-            _withdraw(_msgSender(), csvMain, owner, feeInAssets, feeInShares);
+            _withdraw(
+                _msgSender(),
+                feeCollector,
+                owner,
+                feeInAssets,
+                feeInShares
+            );
             emit CollectedFee(
                 _msgSender(),
                 receiver,

@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ContextUpgradeable} from "openzeppelin-contracts-upgradeable/utils/ContextUpgradeable.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
+import {CSVVaultFactory} from "./CSVVaultFactory.sol";
 
 abstract contract CSVVaultFees is Initializable, ContextUpgradeable {
     using FixedPointMathLib for uint256;
@@ -40,10 +41,10 @@ abstract contract CSVVaultFees is Initializable, ContextUpgradeable {
     uint256 public joinTime;
     uint256 public maturity;
     uint256 public scale;
-    address public csvMain;
+    CSVVaultFactory public csvFactory;
 
-    modifier onlySponsor() {
-        require(_msgSender() == csvMain);
+    modifier onlyFactory() {
+        require(_msgSender() == address(csvFactory));
         _;
     }
 
@@ -54,21 +55,26 @@ abstract contract CSVVaultFees is Initializable, ContextUpgradeable {
         uint256 joinTime_,
         uint256 maturity_,
         uint256 scale_,
-        address csvMain_
+        address csvFactory_
     ) internal virtual onlyInitializing {
-        __CSVVaultFees_init_unchained(joinTime_, maturity_, scale_, csvMain_);
+        __CSVVaultFees_init_unchained(
+            joinTime_,
+            maturity_,
+            scale_,
+            csvFactory_
+        );
     }
 
     function __CSVVaultFees_init_unchained(
         uint256 joinTime_,
         uint256 maturity_,
         uint256 scale_,
-        address csvMain_
+        address csvFactory_
     ) internal virtual onlyInitializing {
         joinTime = joinTime_;
         maturity = maturity_;
         scale = scale_;
-        csvMain = csvMain_;
+        csvFactory = CSVVaultFactory(csvFactory_);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -136,7 +142,7 @@ abstract contract CSVVaultFees is Initializable, ContextUpgradeable {
     function freezeFeeFor(address owner, Discount discount)
         public
         virtual
-        onlySponsor
+        onlyFactory
     {
         if (discount == Discount.NONE) {
             // delete any frozen discount for this user
@@ -198,7 +204,6 @@ abstract contract CSVVaultFees is Initializable, ContextUpgradeable {
     }
 
     function _priceDiscount() internal view virtual returns (uint256) {
-        //TODO: implement base
-        return 1 ether;
+        return csvFactory.avgPriceFactor();
     }
 }
