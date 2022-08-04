@@ -7,6 +7,19 @@ import {MockVotingToken} from "./mocks/MockVotingToken.sol";
 import {MinimalProxyFactory} from "solidstate-solidity/factory/MinimalProxyFactory.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
+contract MockFactory {
+    address public feeCollector = msg.sender;
+    uint256 private _avgPriceFactor = 1 ether;
+
+    function avgPriceFactor() public view virtual returns (uint256) {
+        return _avgPriceFactor;
+    }
+
+    function setPriceFactor(uint256 priceFactor) public virtual {
+        _avgPriceFactor = priceFactor;
+    }
+}
+
 contract CSVVaultTest is PRBTest, MinimalProxyFactory {
     using FixedPointMathLib for uint256;
 
@@ -29,6 +42,7 @@ contract CSVVaultTest is PRBTest, MinimalProxyFactory {
         address walletImplementation;
     }
     MockVotingToken asset;
+    MockFactory factory;
     vaultInitializeParams defaultParams;
     CSVVault vault;
     CSVVault proxyVault;
@@ -42,6 +56,7 @@ contract CSVVaultTest is PRBTest, MinimalProxyFactory {
 
     function setUp() public {
         asset = new MockVotingToken();
+        factory = new MockFactory();
         vault = new CSVVault();
         walletBaseImplementation = new CSVWallet(asset);
 
@@ -52,7 +67,7 @@ contract CSVVaultTest is PRBTest, MinimalProxyFactory {
             block.timestamp,
             block.timestamp + (4 weeks * 36),
             2 ether,
-            address(this),
+            address(factory),
             address(walletBaseImplementation)
         );
         proxyVault = CSVVault(_deployMinimalProxy(address(vault)));
@@ -317,6 +332,5 @@ contract CSVVaultTest is PRBTest, MinimalProxyFactory {
             proxyVault.delegateCurrentClaim(claimantAlice),
             avaiableToWithdraw / 2
         );
-        
     }
 }
